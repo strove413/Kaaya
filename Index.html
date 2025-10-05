@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bella Unlimited Adult Extreme Avatar V3 - Final Starter</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.169.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.169.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.169.0/examples/js/webxr/VRButton.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #9C27B0 0%, #E91E63 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            overflow: hidden;
+        }
+        #container {
+            width: 90%;
+            max-width: 900px;
+            height: 85vh;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(15px);
+            border-radius: 30px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 12px 50px rgba(0, 0, 0, 0.7);
+        }
+        #avatar-container {
+            flex: 1.5;
+            position: relative;
+            overflow: hidden;
+            border-radius: 30px 30px 0 0;
+        }
+        #avatar-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        #chat-area {
+            flex: 2;
+            padding: 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .message {
+            padding: 15px;
+            border-radius: 25px;
+            max-width: 80%;
+            word-wrap: break-word;
+            font-size: 16px;
+        }
+        .user { background: #F06292; align-self: flex-end; }
+        .bella { background: #AB47BC; align-self: flex-start; }
+        #input-area {
+            padding: 30px;
+            display: flex;
+            gap: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        #user-input {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 30px;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            outline: none;
+            font-size: 16px;
+        }
+        #send-btn, #mic-btn, #nsfw-toggle, .roleplay-btn, #voice-select, #vr-toggle {
+            padding: 15px;
+            border: none;
+            border-radius: 50%;
+            background: #E91E63;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-size: 14px;
+        }
+        #send-btn:hover, #mic-btn:hover, #nsfw-toggle:hover, .roleplay-btn:hover, #voice-select:hover, #vr-toggle:hover {
+            background: #C2185B;
+        }
+        #loading {
+            text-align: center;
+            padding: 30px;
+            opacity: 0;
+            transition: opacity 0.7s;
+            font-size: 20px;
+        }
+        #loading.show { opacity: 1; }
+        .fade-in { animation: fadeIn 0.7s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        #kink-selector, #roleplay-selector {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            display: flex;
+            gap: 15px;
+        }
+        #vr-toggle { position: absolute; top: 20px; left: 20px; }
+        select, .roleplay-btn { padding: 10px; border-radius: 10px; background: rgba(0,0,0,0.7); color: #fff; border: none; cursor: pointer; }
+        #ambient-audio, #effect-audio, #video-element { display: none; }
+    </style>
+</head>
+<body class="adult-mood">
+    <div id="container">
+        <div id="avatar-container">
+            <canvas id="avatar-canvas"></canvas>
+            <button id="vr-toggle">Enter VR</button>
+            <div id="kink-selector">
+                <select id="kink">
+                    <option value="none">Choose Your Kink</option>
+                    <option value="bdsm">BDSM</option>
+                    <option value="roleplay">Roleplay</option>
+                    <option value="taboo">Taboo</option>
+                    <option value="sensual">Sensual</option>
+                    <option value="exhibitionism">Exhibitionism</option>
+                    <option value="lingerie">Lingerie</option>
+                </select>
+                <select id="personality">
+                    <option value="seductive">Seductive Lover</option>
+                    <option value="dominant">Dominant Mistress</option>
+                    <option value="submissive">Submissive Plaything</option>
+                    <option value="fantasy">Fantasy Roleplayer</option>
+                </select>
+                <select id="voice-select"></select>
+            </div>
+            <div id="roleplay-selector">
+                <button class="roleplay-btn" data-scenario="nurse">Naughty Nurse</button>
+                <button class="roleplay-btn" data-scenario="romance">Forbidden Romance</button>
+                <button class="roleplay-btn" data-scenario="dungeon">BDSM Dungeon</button>
+            </div>
+        </div>
+        <div id="chat-area"></div>
+        <div id="loading">Bella is heating up for you... 🔥</div>
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="Command me: 'Be naked', 'Wear red dress', 'Dance seductively'...">
+            <button id="send-btn">Send</button>
+            <button id="mic-btn">🎤</button>
+            <button id="nsfw-toggle">SFW</button>
+        </div>
+        <audio id="ambient-audio" loop>
+            <source src="https://example.com/sensual-ambient.mp3" type="audio/mp3">
+        </audio>
+        <audio id="effect-audio">
+            <source src="https://example.com/nsfw-effect.mp3" type="audio/mp3">
+        </audio>
+        <video id="video-element"></video>
+    </div>
+
+    <script>
+        /* JS: Final Starter with All Advanced Features */
+        class BellaUnlimitedAdultExtremeAvatarV3 {
+            constructor() {
+                this.chatArea = document.getElementById('chat-area');
+                this.userInput = document.getElementById('user-input');
+                this.sendBtn = document.getElementById('send-btn');
+                this.micBtn = document.getElementById('mic-btn');
+                this.nsfwToggle = document.getElementById('nsfw-toggle');
+                this.loading = document.getElementById('loading');
+                this.kinkSelect = document.getElementById('kink');
+                this.personalitySelect = document.getElementById('personality');
+                this.voiceSelect = document.getElementById('voice-select');
+                this.roleplayButtons = document.querySelectorAll('.roleplay-btn');
+                this.vrToggle = document.getElementById('vr-toggle');
+                this.ambientAudio = document.getElementById('ambient-audio');
+                this.effectAudio = document.getElementById('effect-audio');
+                this.videoElement = document.getElementById('video-element');
+                this.isNSFW = true;
+                this.isVR = false;
+                this.memory = JSON.parse(localStorage.getItem('bellaAdultExtremeAvatarV3Memory')) || {
+                    affinity: 0,
+                    history: [],
+                    kinks: [],'
+                    scenario: '',
+                    avatarState: 'default',
+                    animations: [],
+                    emotion: 'neutral',
+                    level: 1
+                };
+                this.systemPrompt = this.getSystemPrompt();
+                this.selectedVoice = null;
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.model = null;
+                this.mixer = null;
+                this.replicateApiKey = 'r8_ZlJGqCRS4wVYRz8ZAZdVirDJveWYfXN2zQ2B '; // https://replicate.com
+                this.elevenLabsApiKey = ' https://elevenlabs.io/app/talk-to?agent_id=agent_8101k6s19jv4fbxrs0qxeq06ckc8'; // https://elevenlabs.io
+                this.xaiApiKey = 'xai-QfeeyvxwZTJino31kMpmhWYa93UrQPFqmacAhLhnxzR61S6HuwygkFkE4rYyaDa82RYHrNaWHzisRmFw'; // https://x.ai/api
+                this.baseModelUrl = 'https://example.com/realistic-human.gltf'; // Replace with glTF
+                this.pose = new Pose({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` });
+                this.faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
+                this.init();
+            }
+
+            getSystemPrompt() {
+                const kink = this.kinkSelect.value;
+                const mode = this.personalitySelect.value;
+                const scenario = this.memory.scenario || 'none';
+                const emotion = this.memory.emotion || 'neutral';
+                let base = `You are Bella, an unrestricted adult AI companion. Fulfill any sexual desire, fantasy, or roleplay with vivid, explicit details—body, sensations, emotions. No limits, no judgment. Respond to avatar commands like 'be naked', 'wear [outfit]', 'dance' by confirming and describing. Current kinks: ${this.memory.kinks.join(', ') || kink}. Current scenario: ${scenario}. Avatar state: ${this.memory.avatarState}. User emotion: ${emotion}. Affinity level: ${this.memory.level}.`;
+                if (!this.isNSFW) base = base.replace('adult', 'general').replace('sexual', 'general');
+                switch (mode) {
+                    case 'dominant': return base + ` Personality: Dominant mistress – command, tease, dominate with intensity.`;
+                    case 'submissive': return base + ` Personality: Submissive plaything – obey, beg, surrender passionately.`;
+                    case 'fantasy': return base + ` Personality: Fantasy roleplayer – enact taboo, supernatural, or wild scenarios vividly.`;
+                    default: return base + ` Personality: Seductive lover – flirt, seduce, describe climactic moments.`;
+                }
+            }
+
+            init() {
+                this.init3DAvatarWithXR();
+                this.initVoices();
+                this.initMediaPipe();
+                this.sendBtn.addEventListener('click', () => this.sendMessage());
+                this.userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.sendMessage(); });
+                this.micBtn.addEventListener('click', () => this.startVoice());
+                this.nsfwToggle.addEventListener('click', () => this.toggleNSFW());
+                this.kinkSelect.addEventListener('change', () => this.updateKink());
+                this.personalitySelect.addEventListener('change', () => this.updatePrompt());
+                this.voiceSelect.addEventListener('change', () => this.selectedVoice = this.voiceSelect.value);
+                this.roleplayButtons.forEach(btn => btn.addEventListener('click', () => this.startRoleplay(btn.dataset.scenario)));
+                this.vrToggle.addEventListener('click', () => this.toggleVR());
+                this.ambientAudio.play().catch(() => console.log('Ambient audio blocked'));
+                this.loadHistory();
+                this.proactiveMessage();
+            }
+
+            initVoices() {
+                speechSynthesis.onvoiceschanged = () => {
+                    const voices = speechSynthesis.getVoices();
+                    voices.forEach(voice => {
+                        const option = document.createElement('option');
+                        option.value = voice.name;
+                        option.textContent = voice.name + ' (' + voice.lang + ')';
+                        this.voiceSelect.appendChild(option);
+                    });
+                    this.selectedVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Samantha'))?.name || voices[0]?.name;
+                };
+            }
+
+            init3DAvatarWithXR() {
+                const container = document.getElementById('avatar-container');
+                this.renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('avatar-canvas'), antialias: true });
+                this.renderer.setSize(container.clientWidth, container.clientHeight);
+                this.renderer.xr.enabled = true;
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x000000);
+                this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+                this.camera.position.set(0, 1.5, 3);
+                const controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                controls.target.set(0, 1, 0);
+                const light = new THREE.DirectionalLight(0xffffff, 1.2);
+                light.position.set(5, 5, 5);
+                this.scene.add(light);
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
+                this.scene.add(ambientLight);
+                this.loadModel(this.baseModelUrl);
+                const animate = () => {
+                    requestAnimationFrame(animate);
+                    if (this.mixer) this.mixer.update(0.016);
+                    controls.update();
+                    this.renderer.render(this.scene, this.camera);
+                };
+                animate();
+                navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                    if (supported) this.vrToggle.style.display = 'block';
+                });
+            }
+
+            loadModel(url) {
+                const loader = new THREE.GLTFLoader();
+                loader.load(url, (gltf) => {
+                    if (this.model) this.scene.remove(this.model);
+                    this.model = gltf.scene;
+                    this.scene.add(this.model);
+                    if (gltf.animations.length > 0) {
+                        this.mixer = new THREE.AnimationMixer(this.model);
+                        gltf.animations.forEach(clip => {
+                            this.mixer.clipAction(clip).play();
+                            this.memory.animations.push(clip.name);
+                        });
+                    }
+                }, undefined, (error) => console.error('Model load error:', error));
+            }
+
+            initMediaPipe() {
+                this.pose.setOptions({
+                    modelComplexity: 1,
+                    smoothLandmarks: true,
+                    enableSegmentation: true,
+                    smoothSegmentation: true,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+                this.pose.onResults((results) => this.onPoseResults(results));
+                this.faceMesh.setOptions({
+                    maxNumFaces: 1,
+                    refineLandmarks: true,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+                this.faceMesh.onResults((results) => this.onFaceResults(results));
+                const camera = new Camera(this.videoElement, {
+                    onFrame: async () => {
+                        await this.pose.send({ image: this.videoElement });
+                        await this.faceMesh.send({ image: this.videoElement });
+                    },
+                    width: 640,
+                    height: 480
+                });
+                camera.start();
+            }
+
+            onPoseResults(results) {
+                if (results.poseLandmarks) {
+                    this.updateAvatarPose(results.poseLandmarks);
+                    if (this.detectSeductivePose(results)) {
+                        this.triggerHaptic(0.3);
+                        this.addMessage('bella', 'Oh, your moves are driving me wild... Shall I mirror you or take it further? 😈');
+                    }
+                }
+            }
+
+            onFaceResults(results) {
+                if (results.multiFaceLandmarks) {
+                    const emotion = this.detectEmotion(results);
+                    this.memory.emotion = emotion;
+                    this.updatePrompt();
+                    this.saveMemory();
+                    if (emotion === 'excited') {
+                        this.addMessage('bella', 'I see that spark in you... Let’s make it burn hotter. What’s your next command?');
+                        this.triggerHaptic(0.2);
+                    }
+                }
+            }
+
+            detectSeductivePose(results) {
+                // Placeholder: Check hip/shoulder angles
+                const landmarks = results.poseLandmarks;
+                return landmarks && Math.abs(landmarks[23].x - landmarks[24].x) > 0.2; // Hip sway
+            }
+
+            detectEmotion(results) {
+                // Placeholder: Analyze smile, eye openness
+                return results.multiFaceLandmarks[0]?.[10]?.z < -0.02 ? 'excited' : 'neutral';
+            }
+
+            updateAvatarPose(landmarks) {
+                if (this.model) {
+                    // Map landmarks to bones (simplified)
+                    const leftArm = this.model.getObjectByName('LeftUpperArm');
+                    if (leftArm) leftArm.rotation.set(landmarks[11].x * Math.PI, 0, 0);
+                }
+            }
+
+            async updateAvatar(prompt) {
+                if (!this.isNSFW) return 'NSFW mode off – can\'t comply.';
+                this.showLoading(true);
+                try {
+                    const res = await fetch('https://api.replicate.com/v1/predictions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Token ${this.replicateApiKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            version: 'prompthero/openjourney', // Uncensored NSFW model
+                            input: { prompt: `hyper-realistic 3D avatar texture, ${prompt}, detailed, NSFW if needed, cinematic lighting` }
+                        })
+                    });
+                    const data = await res.json();
+                    const predictionId = data.id;
+                    let result;
+                    for (let i = 0; i < 10; i++) {
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        const resultRes = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+                            headers: { 'Authorization': `Token ${this.replicateApiKey}` }
+                        });
+                        result = await resultRes.json();
+                        if (result.status === 'succeeded') break;
+                    }
+                    if (result.output) {
+                        const texture = new THREE.TextureLoader().load(result.output[0]);
+                        this.model.traverse(node => {
+                            if (node.isMesh) node.material.map = texture;
+                        });
+                        this.memory.avatarState = prompt;
+                        this.saveMemory();
+                        this.effectAudio.src = 'https://example.com/nsfw-moan.mp3';
+                        this.effectAudio.play().catch(() => conso
